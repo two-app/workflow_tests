@@ -58,9 +58,17 @@ class RegisterUserTest {
 
     @Test
     @DisplayName("it should return a bad request if registration age is lower than minimum")
-    void invalidData() {
+    void invalidAge() {
         // will not test all permutations, just enough to check that bean validation is occurring
         UserRegistration invalidUser = validUser().toBuilder().age(3).build();
+
+        registerUser(invalidUser).expectStatus().is4xxClientError();
+    }
+
+    @Test
+    @DisplayName("it should return a Bad Request if the email is malformed")
+    void invalidEmail() {
+        UserRegistration invalidUser = validUser().toBuilder().email("wrong").build();
 
         registerUser(invalidUser).expectStatus().is4xxClientError();
     }
