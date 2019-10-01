@@ -12,7 +12,7 @@
     <artifactId>workflow_tests</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>workflow_tests</name>
-    <description>End-to-End Tests for Two</description>
+    <description>End-to-End HTTP Tests for Two</description>
 
     <properties>
         <java.version>11</java.version>
