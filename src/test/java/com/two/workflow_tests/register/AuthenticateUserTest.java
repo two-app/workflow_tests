@@ -10,6 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Calendar;
+
 class AuthenticateUserTest {
 
     private WebTestClient gateway;
@@ -40,7 +44,7 @@ class AuthenticateUserTest {
             registerUser(user).expectStatus().isOk();
 
             // create second account
-            registerUser(user).expectStatus().is4xxClientError()
+            registerUser(user).expectStatus().isBadRequest()
                     .expectBody()
                     .jsonPath("$.message").isEqualTo("This user already exists.");
         }
@@ -51,7 +55,7 @@ class AuthenticateUserTest {
             // will not test all permutations, just enough to check that bean validation is occurring
             UserRegistration invalidUser = validUser().toBuilder().name(null).build();
 
-            registerUser(invalidUser).expectStatus().is4xxClientError()
+            registerUser(invalidUser).expectStatus().isBadRequest()
                     .expectBody()
                     .jsonPath("$.message").isEqualTo("Name must be provided.");
         }
@@ -60,9 +64,17 @@ class AuthenticateUserTest {
         @DisplayName("it should return a bad request if registration age is lower than minimum")
         void invalidAge() {
             // will not test all permutations, just enough to check that bean validation is occurring
-            UserRegistration invalidUser = validUser().toBuilder().age(3).build();
+            Calendar calendar = Calendar.getInstance();
+            calendar.add(Calendar.YEAR, -12);
+            LocalDate invalidAge = LocalDateTime.ofInstant(
+                    calendar.toInstant(), calendar.getTimeZone().toZoneId()
+            ).toLocalDate();
 
-            registerUser(invalidUser).expectStatus().is4xxClientError();
+            UserRegistration invalidUser = validUser().toBuilder().dob(invalidAge).build();
+
+            registerUser(invalidUser).expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Age must be greater than 13.");
         }
 
         @Test
@@ -70,7 +82,7 @@ class AuthenticateUserTest {
         void invalidEmail() {
             UserRegistration invalidUser = validUser().toBuilder().email("wrong").build();
 
-            registerUser(invalidUser).expectStatus().is4xxClientError();
+            registerUser(invalidUser).expectStatus().isBadRequest();
         }
     }
 
@@ -115,7 +127,7 @@ class AuthenticateUserTest {
         return UserRegistration.builder()
                 .name("registerUserWorkflowTest")
                 .email(("registerUserWorkflowTest-" + RandomString.make(10) + "@two.com"))
-                .age(33)
+                .dob(LocalDate.parse("1997-08-21"))
                 .password("aTestPassw0rd")
                 .build();
     }

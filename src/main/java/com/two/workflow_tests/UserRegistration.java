@@ -3,6 +3,8 @@ package com.two.workflow_tests;
 import lombok.Builder;
 import lombok.Value;
 
+import java.time.LocalDate;
+
 @Value
 @Builder(toBuilder = true)
 public class UserRegistration {
@@ -13,5 +15,5 @@ public class UserRegistration {
 
     private String name;
 
-    private int age;
+    private LocalDate dob;
 }
