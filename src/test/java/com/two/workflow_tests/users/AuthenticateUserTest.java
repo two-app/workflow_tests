@@ -1,49 +1,51 @@
 package com.two.workflow_tests.users;
 
-import com.two.workflow_tests.AuthenticationUtil;
-import com.two.workflow_tests.UserRegistration;
-import org.junit.jupiter.api.BeforeEach;
+import com.two.http_api.model.PublicApiModel.UserRegistration;
+import com.two.http_api.model.Tokens;
+import com.two.workflow_tests.GatewayAPI;
+import com.two.workflow_tests.TestUserRegistration;
+import com.two.workflow_tests.UserDetails;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Calendar;
 
-class AuthenticateUserTest {
-    private AuthenticationUtil authenticationUtil;
+import static org.assertj.core.api.Assertions.assertThat;
 
-    @BeforeEach
-    void beforeEach() {
-        this.authenticationUtil = new AuthenticationUtil(
-                WebTestClient.bindToServer().baseUrl("http://0.0.0.0:8080").build()
-        );
-    }
+class AuthenticateUserTest {
+    private GatewayAPI gatewayAPI = new GatewayAPI();
 
     @Nested
     class RegisterUser {
         @Test
-        @DisplayName("it should return a pair of tokens")
+        @DisplayName("it should return a pair of tokens, where the access token is of connect type")
         void registerUserSuccess() {
-            authenticationUtil.registerValidUser()
+            Tokens tokens = gatewayAPI.registerValidUser()
                     .expectStatus().isOk()
-                    .expectBody()
-                    .jsonPath("$.accessToken").isNotEmpty()
-                    .jsonPath("$.refreshToken").isNotEmpty();
+                    .returnResult(Tokens.class)
+                    .getResponseBody()
+                    .blockFirst();
+
+            UserDetails userDetails = UserDetails.fromTokens(tokens);
+
+            assertThat(userDetails.isConnected).isFalse();
+            assertThat(userDetails.connectCode).isNotEmpty();
+            assertThat(userDetails.uid).isGreaterThan(0);
         }
 
         @Test
         @DisplayName("it should return a Bad Request if the account already exists")
         void accountExists() {
-            UserRegistration user = authenticationUtil.validUser();
+            UserRegistration user = TestUserRegistration.validUser();
 
             // create first account
-            authenticationUtil.registerUser(user).expectStatus().isOk();
+            gatewayAPI.registerUser(user).expectStatus().isOk();
 
             // create second account
-            authenticationUtil.registerUser(user).expectStatus().isBadRequest()
+            gatewayAPI.registerUser(user).expectStatus().isBadRequest()
                     .expectBody()
                     .jsonPath("$.message").isEqualTo("This user already exists.");
         }
@@ -52,9 +54,9 @@ class AuthenticateUserTest {
         @DisplayName("it should return a Bad Request if registration data is missing")
         void missingData() {
             // will not test all permutations, just enough to check that bean validation is occurring
-            UserRegistration invalidUser = authenticationUtil.validUser().toBuilder().name(null).build();
+            UserRegistration invalidUser = TestUserRegistration.validUser().setName(null);
 
-            authenticationUtil.registerUser(invalidUser).expectStatus().isBadRequest()
+            gatewayAPI.registerUser(invalidUser).expectStatus().isBadRequest()
                     .expectBody()
                     .jsonPath("$.message").isEqualTo("Name must be provided.");
         }
@@ -69,9 +71,9 @@ class AuthenticateUserTest {
                     calendar.toInstant(), calendar.getTimeZone().toZoneId()
             ).toLocalDate();
 
-            UserRegistration invalidUser = authenticationUtil.validUser().toBuilder().dob(invalidAge).build();
+            UserRegistration invalidUser = TestUserRegistration.validUser().setDob(invalidAge);
 
-            authenticationUtil.registerUser(invalidUser).expectStatus().isBadRequest()
+            gatewayAPI.registerUser(invalidUser).expectStatus().isBadRequest()
                     .expectBody()
                     .jsonPath("$.message").isEqualTo("Age must be greater than 13.");
         }
@@ -79,9 +81,11 @@ class AuthenticateUserTest {
         @Test
         @DisplayName("it should return a Bad Request if the email is malformed")
         void invalidEmail() {
-            UserRegistration invalidUser = authenticationUtil.validUser().toBuilder().email("wrong").build();
+            UserRegistration invalidUser = TestUserRegistration.validUser().setEmail("wrong");
 
-            authenticationUtil.registerUser(invalidUser).expectStatus().isBadRequest();
+            gatewayAPI.registerUser(invalidUser).expectStatus().isBadRequest()
+                    .expectBody()
+                    .jsonPath("$.message").isEqualTo("Email must be valid.");
         }
     }
 
@@ -90,18 +94,30 @@ class AuthenticateUserTest {
         @Test
         @DisplayName("it should return tokens when the credentials are valid")
         void validCredentials() {
-            UserRegistration userRegistration = authenticationUtil.validUser();
+            UserRegistration userRegistration = TestUserRegistration.validUser();
 
-            authenticationUtil.registerUser(userRegistration).expectStatus().isOk();
+            Tokens registerTokens = gatewayAPI.registerUser(userRegistration)
+                    .expectStatus().isOk()
+                    .returnResult(Tokens.class)
+                    .getResponseBody().blockFirst();
 
-            authenticationUtil.login(userRegistration.getEmail(), userRegistration.getPassword())
-                    .expectStatus().isOk();
+            UserDetails registeredDetails = UserDetails.fromTokens(registerTokens);
+
+            Tokens loginTokens = gatewayAPI.login(userRegistration.getEmail(), userRegistration.getPassword())
+                    .expectStatus().isOk()
+                    .returnResult(Tokens.class)
+                    .getResponseBody().blockFirst();
+
+            UserDetails loggedInDetails = UserDetails.fromTokens(loginTokens);
+
+            assertThat(registeredDetails).isEqualTo(loggedInDetails);
         }
 
         @Test
         @DisplayName("it should return a bad request if the credentials are invalid")
         void invalidCredentials() {
-            authenticationUtil.login("unknown@gmail.com", "rawPassword").expectStatus().isBadRequest()
+            gatewayAPI.login("unknown@gmail.com", "rawPassword")
+                    .expectStatus().isBadRequest()
                     .expectBody()
                     .jsonPath("$.message").isEqualTo("This user does not exist.");
         }
@@ -109,11 +125,13 @@ class AuthenticateUserTest {
         @Test
         @DisplayName("it should return a bad request if the user exists but password is incorrect")
         void wrongPassword() {
-            UserRegistration validUser = authenticationUtil.validUser();
-            authenticationUtil.registerUser(validUser);
+            UserRegistration validUser = TestUserRegistration.validUser();
+            gatewayAPI.registerUser(validUser);
 
-            authenticationUtil.login(validUser.getEmail(), "wrongPassword")
-                    .expectStatus().isBadRequest();
+            gatewayAPI.login(validUser.getEmail(), "wrongPassword")
+                    .expectStatus().isBadRequest()
+                    .expectBody()
+                    .jsonPath("$.message").isEqualTo("Incorrect password.");
         }
     }
 
