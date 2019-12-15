@@ -9,10 +9,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Calendar;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AuthenticateUserTest {
@@ -54,28 +50,21 @@ class AuthenticateUserTest {
         @DisplayName("it should return a Bad Request if registration data is missing")
         void missingData() {
             // will not test all permutations, just enough to check that bean validation is occurring
-            UserRegistration invalidUser = TestUserRegistration.validUser().setName(null);
+            UserRegistration invalidUser = TestUserRegistration.validUser().setFirstName(null);
 
             gatewayAPI.registerUser(invalidUser).expectStatus().isBadRequest()
                     .expectBody()
-                    .jsonPath("$.message").isEqualTo("Name must be provided.");
+                    .jsonPath("$.message").isEqualTo("First Name must be provided.");
         }
 
         @Test
-        @DisplayName("it should return a bad request if registration age is lower than minimum")
+        @DisplayName("it should return a bad request if terms and conditions not accepted")
         void invalidAge() {
-            // will not test all permutations, just enough to check that bean validation is occurring
-            Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.YEAR, -12);
-            LocalDate invalidAge = LocalDateTime.ofInstant(
-                    calendar.toInstant(), calendar.getTimeZone().toZoneId()
-            ).toLocalDate();
-
-            UserRegistration invalidUser = TestUserRegistration.validUser().setDob(invalidAge);
+            UserRegistration invalidUser = TestUserRegistration.validUser().setAcceptedTerms(false);
 
             gatewayAPI.registerUser(invalidUser).expectStatus().isBadRequest()
                     .expectBody()
-                    .jsonPath("$.message").isEqualTo("Age must be greater than 13.");
+                    .jsonPath("$.message").isEqualTo("Terms & Conditions must be accepted.");
         }
 
         @Test
