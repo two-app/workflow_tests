@@ -33,4 +33,10 @@ public class GatewayAPI {
                 .header("Authorization", "Bearer " + accessToken)
                 .exchange();
     }
+
+    public WebTestClient.ResponseSpec getPartner(String accessToken) {
+        return client().get().uri("/partner")
+                .header("Authorization", "Bearer " + accessToken)
+                .exchange();
+    }
 }
