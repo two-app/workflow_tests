@@ -72,17 +72,17 @@ class ConnectUsersWorkflowTest {
     }
 
     @Test
-    @DisplayName("user one should have no partner")
+    @DisplayName("user one should be unable to retrieve partner")
     @Order(5)
     void userOneNoPartner() {
-        gatewayAPI.getPartner(userOneTokens.getAccessToken()).expectStatus().isNotFound();
+        gatewayAPI.getPartner(userOneTokens.getAccessToken()).expectStatus().isUnauthorized();
     }
 
     @Test
-    @DisplayName("user two should have no partner")
+    @DisplayName("user two should be unable to retrieve partner")
     @Order(6)
     void userTwoNoPartner() {
-        gatewayAPI.getPartner(userTwoTokens.getAccessToken()).expectStatus().isNotFound();
+        gatewayAPI.getPartner(userTwoTokens.getAccessToken()).expectStatus().isUnauthorized();
     }
 
     @Test
