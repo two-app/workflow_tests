@@ -6,7 +6,6 @@ import com.two.http_api.model.Tokens;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 
-
 @AllArgsConstructor
 @EqualsAndHashCode
 public class UserDetails {

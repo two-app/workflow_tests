@@ -25,6 +25,7 @@ class AuthenticateUserTest {
                     .getResponseBody()
                     .blockFirst();
 
+            assertThat(tokens).isNotNull();
             UserDetails userDetails = UserDetails.fromTokens(tokens);
 
             assertThat(userDetails.isConnected).isFalse();
@@ -58,7 +59,7 @@ class AuthenticateUserTest {
         }
 
         @Test
-        @DisplayName("it should return a bad request if terms and conditions not accepted")
+        @DisplayName("it should return a Bad Request if terms and conditions not accepted")
         void invalidAge() {
             UserRegistration invalidUser = TestUserRegistration.validUser().setAcceptedTerms(false);
 
@@ -90,6 +91,7 @@ class AuthenticateUserTest {
                     .returnResult(Tokens.class)
                     .getResponseBody().blockFirst();
 
+            assertThat(registerTokens).isNotNull();
             UserDetails registeredDetails = UserDetails.fromTokens(registerTokens);
 
             Tokens loginTokens = gatewayAPI.login(userRegistration.getEmail(), userRegistration.getPassword())
@@ -97,22 +99,23 @@ class AuthenticateUserTest {
                     .returnResult(Tokens.class)
                     .getResponseBody().blockFirst();
 
+            assertThat(loginTokens).isNotNull();
             UserDetails loggedInDetails = UserDetails.fromTokens(loginTokens);
 
             assertThat(registeredDetails).isEqualTo(loggedInDetails);
         }
 
         @Test
-        @DisplayName("it should return a bad request if the credentials are invalid")
+        @DisplayName("it should return Not Found if the credentials are invalid")
         void invalidCredentials() {
             gatewayAPI.login("unknown@gmail.com", "rawPassword")
-                    .expectStatus().isBadRequest()
+                    .expectStatus().isNotFound()
                     .expectBody()
                     .jsonPath("$.message").isEqualTo("This user does not exist.");
         }
 
         @Test
-        @DisplayName("it should return a bad request if the user exists but password is incorrect")
+        @DisplayName("it should return a Bad Request if the user exists but password is incorrect")
         void wrongPassword() {
             UserRegistration validUser = TestUserRegistration.validUser();
             gatewayAPI.registerUser(validUser);
